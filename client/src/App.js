@@ -6,7 +6,15 @@ import getWeb3 from "./getWeb3";
 import "./App.css";
 
 class App extends Component {
-  state = { loaded: false, cost: 0, itemName: "Example1" };
+  state = {
+    loaded: false,
+    cost: 0,
+    itemName: "Example1",
+    itemsList: [],
+    count: 0,
+    owner: "0x7e5a30f9c1f27c19211928f22523694273d23e7d",
+    currentAccount: "",
+  };
 
   componentDidMount = async () => {
     try {
@@ -15,7 +23,7 @@ class App extends Component {
 
       // Use web3 to get the user's accounts.
       this.accounts = await this.web3.eth.getAccounts();
-
+      this.setState({ currentAccount: this.accounts[0] });
       // Get the contract instance.
       this.networkId = await this.web3.eth.net.getId();
       this.itemManager = new this.web3.eth.Contract(
@@ -34,6 +42,11 @@ class App extends Component {
       // example of interacting with the contract's methods.
       this.setState({ loaded: true }, this.runExample);
       console.log(this.accounts[0]);
+
+      window.ethereum.on("accountsChanged", (accounts) => {
+        console.log("Changed");
+        this.setState({ currentAccount: accounts[0] });
+      });
     } catch (error) {
       // Catch any errors for any of the above operations.
       alert(
@@ -50,12 +63,51 @@ class App extends Component {
     this.setState({ [name]: value });
   };
 
-  handleSubmit = async () => {
-    const { cost, itemName } = this.state;
-    let result = await this.itemManager.methods
-      .createItem(itemName, cost)
-      .send({ from: this.accounts[0] });
+  handleSubmit = () => {
+    console.log("Owner: " + this.state.owner);
+    console.log("User: " + this.state.currentAccount);
 
+    if (this.state.owner === this.state.currentAccount.toLowerCase()) {
+      const { cost, itemName } = this.state;
+
+      this.itemManager.methods
+        .createItem(itemName, cost)
+        .send({ from: this.state.currentAccount })
+        .then((result) => {
+          let itemObject = {
+            identifier: itemName,
+            cost: cost,
+            status: "Created",
+          };
+          this.setState((prevState) => ({
+            itemsList: [...prevState.itemsList, itemObject],
+          }));
+          console.log(result);
+        });
+      console.log(this.state.itemsList);
+    } else {
+      alert("Only owner");
+    }
+  };
+
+  triggerDelivery = async () => {
+    console.log(this.state.itemsList[1]);
+    if (this.state.owner === this.state.currentAccount.toLowerCase()) {
+      let result = await this.itemManager.methods
+        .triggerDelivery(8)
+        .send({ from: this.accounts[0] });
+
+      // this.items[0].status = "In transit";
+      console.log(result);
+    } else {
+      alert("Only owner");
+    }
+  };
+
+  triggerArrival = async () => {
+    let result = await this.itemManager.methods
+      .triggerArrival(1)
+      .send({ from: this.accounts[0] });
     console.log(result);
   };
 
@@ -85,6 +137,21 @@ class App extends Component {
         <button type="button" onClick={this.handleSubmit}>
           Create new item
         </button>
+        <button type="button" onClick={this.triggerDelivery}>
+          Trigger delivery
+        </button>
+        <button type="button" onClick={this.triggerArrival}>
+          Trigger arrival
+        </button>
+        <div>
+          Items:
+          <h1>Items</h1>
+          {this.state.itemsList.map((item, key) => (
+            <div key={key}>
+              {item.status}, {item.cost}, {key}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
