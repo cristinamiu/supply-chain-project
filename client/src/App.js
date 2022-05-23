@@ -78,6 +78,7 @@ class App extends Component {
             identifier: itemName,
             cost: cost,
             status: "Created",
+            quality: 10,
           };
           this.setState((prevState) => ({
             itemsList: [...prevState.itemsList, itemObject],
@@ -90,25 +91,26 @@ class App extends Component {
     }
   };
 
-  triggerDelivery = async () => {
-    console.log(this.state.itemsList[1]);
+  triggerDelivery = (index) => {
     if (this.state.owner === this.state.currentAccount.toLowerCase()) {
-      let result = await this.itemManager.methods
-        .triggerDelivery(8)
-        .send({ from: this.accounts[0] });
-
-      // this.items[0].status = "In transit";
-      console.log(result);
+      this.itemManager.methods
+        .triggerDelivery(index)
+        .send({ from: this.state.currentAccount })
+        .then((result) => {
+          this.state.items[index].status = "In transit";
+          console.log(result);
+        });
     } else {
       alert("Only owner");
     }
   };
 
-  triggerArrival = async () => {
-    let result = await this.itemManager.methods
-      .triggerArrival(1)
-      .send({ from: this.accounts[0] });
-    console.log(result);
+  triggerArrival = (e) => {
+    console.log(e);
+    // this.itemManager.methods
+    //   .triggerArrival(1)
+    //   .send({ from: this.accounts[0] });
+    // console.log(result);
   };
 
   render() {
@@ -143,14 +145,46 @@ class App extends Component {
         <button type="button" onClick={this.triggerArrival}>
           Trigger arrival
         </button>
-        <div>
-          Items:
+        <div className="m-5">
           <h1>Items</h1>
-          {this.state.itemsList.map((item, key) => (
-            <div key={key}>
-              {item.status}, {item.cost}, {key}
-            </div>
-          ))}
+          <div>
+            <table className="table mt-5">
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Cost</th>
+                  <th scope="col">Quality</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {this.state.itemsList.map((item, key) => (
+                  <tr>
+                    <td>{key}</td>
+                    <td>{item.identifier}</td>
+                    <td>{item.cost}</td>
+                    <td>{item.quality}</td>
+                    <td>
+                      <span className="badge rounded-pill bg-primary">
+                        {item.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-small"
+                        onClick={() => this.triggerDelivery(key)}
+                      >
+                        Trigger Delivery
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
