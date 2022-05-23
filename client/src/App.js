@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import ItemManagerContract from "./contracts/ItemManager.json";
 import ItemContract from "./contracts/Item.json";
 import getWeb3 from "./getWeb3";
+import update from "react-addons-update"; // ES6
 
 import "./App.css";
 
@@ -56,6 +57,10 @@ class App extends Component {
     }
   };
 
+  // listenToPaymentEvent = () => {
+  //   this.itemManager
+  // }
+
   handleInputChange = (event) => {
     const target = event.target;
     const value = target === "checkbox" ? target.checked : target.value;
@@ -72,7 +77,7 @@ class App extends Component {
 
       this.itemManager.methods
         .createItem(itemName, cost)
-        .send({ from: this.state.currentAccount })
+        .send({ from: this.state.currentAccount.toLowerCase() })
         .then((result) => {
           let itemObject = {
             identifier: itemName,
@@ -94,23 +99,52 @@ class App extends Component {
   triggerDelivery = (index) => {
     if (this.state.owner === this.state.currentAccount.toLowerCase()) {
       this.itemManager.methods
-        .triggerDelivery(index)
-        .send({ from: this.state.currentAccount })
+        .triggerDelivery(parseInt(index))
+        .send({ from: this.state.currentAccount.toLowerCase() })
         .then((result) => {
-          this.state.items[index].status = "In transit";
-          console.log(result);
+          let items = [...this.state.itemsList];
+          let item = { ...items[index], status: "In transit" };
+          items[index] = item;
+          this.setState({ itemsList: items });
+          console.log(this.state);
         });
     } else {
       alert("Only owner");
     }
   };
 
-  triggerArrival = (e) => {
-    console.log(e);
-    // this.itemManager.methods
-    //   .triggerArrival(1)
-    //   .send({ from: this.accounts[0] });
-    // console.log(result);
+  triggerArrival = (index) => {
+    if (this.state.owner !== this.state.currentAccount.toLowerCase()) {
+      this.itemManager.methods
+        .triggerArrival(parseInt(index))
+        .send({ from: this.state.currentAccount.toLowerCase() })
+        .then((result) => {
+          let items = [...this.state.itemsList];
+          let item = { ...items[index], status: "Delivered" };
+          items[index] = item;
+          this.setState({ itemsList: items });
+          console.log(this.state);
+        });
+    } else {
+      alert("Only customer");
+    }
+  };
+
+  triggerEvaluation = (index) => {
+    if (this.state.owner !== this.state.currentAccount.toLowerCase()) {
+      this.itemManager.methods
+        .triggerExamination(parseInt(index), 10)
+        .send({ from: this.state.currentAccount.toLowerCase() })
+        .then((result) => {
+          let items = [...this.state.itemsList];
+          let item = { ...items[index], status: "Evaluated" };
+          items[index] = item;
+          this.setState({ itemsList: items });
+          console.log(this.state);
+        });
+    } else {
+      alert("Only customer");
+    }
   };
 
   render() {
@@ -178,6 +212,27 @@ class App extends Component {
                         onClick={() => this.triggerDelivery(key)}
                       >
                         Trigger Delivery
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-small"
+                        onClick={() => this.triggerArrival(key)}
+                      >
+                        Trigger Arrival
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-small"
+                        onClick={() => this.triggerEvaluation(key)}
+                      >
+                        Trigger Examination
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-small"
+                        onClick={() => this.triggerPayment(key)}
+                      >
+                        Trigger Payment
                       </button>
                     </td>
                   </tr>
