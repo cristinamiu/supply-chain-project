@@ -19,7 +19,7 @@ contract ItemManager is Ownable{
     mapping(uint =>  S_Item) public items;
     uint itemIndex;
 
-    event SupplyChainSetState(uint _itemIndex, uint _itemState);
+    event SupplyChainSetState(uint _itemIndex, uint _itemState, address _itemAddress);
     event SupplyChainSetPrice(uint _itemIndex, uint _itemPrice);
     event SupplyChainSetItemAddress(uint _itemIndex, address _itemAddress);
 
@@ -31,7 +31,7 @@ contract ItemManager is Ownable{
         items[itemIndex]._itemQuality = 10;
         items[itemIndex]._state = SupplyChainState.Created;
 
-        emit SupplyChainSetState(itemIndex, uint(items[itemIndex]._state));
+        emit SupplyChainSetState(itemIndex, uint(items[itemIndex]._state), address(item));
         emit SupplyChainSetItemAddress(itemIndex, address(item));
         itemIndex++;
     }
@@ -39,14 +39,14 @@ contract ItemManager is Ownable{
     function triggerDelivery(uint _itemIndex) public onlyOwner{
         require(items[_itemIndex]._state == SupplyChainState.Created, "The item has already been created");
         items[_itemIndex]._state = SupplyChainState.InTransit;
-        emit SupplyChainSetState(_itemIndex, uint(items[itemIndex]._state));
+        emit SupplyChainSetState(_itemIndex, uint(items[itemIndex]._state), address(items[_itemIndex]._item));
     }
 
     function triggerArrival(uint _itemIndex) public {
         require(items[_itemIndex]._state == SupplyChainState.InTransit, "The item must be in transit");
         items[_itemIndex]._state = SupplyChainState.Delivered;
 
-        emit SupplyChainSetState(_itemIndex, uint(items[_itemIndex]._itemPrice));
+        emit SupplyChainSetState(_itemIndex, uint(items[_itemIndex]._itemPrice),address(items[_itemIndex]._item));
 
 
     }
@@ -61,17 +61,18 @@ contract ItemManager is Ownable{
 
         items[_itemIndex]._itemPrice = newPrice;
 
-        emit SupplyChainSetState(_itemIndex, uint(items[_itemIndex]._state));
+        emit SupplyChainSetState(_itemIndex, uint(items[_itemIndex]._state), address(items[_itemIndex]._item));
         emit SupplyChainSetPrice(_itemIndex, uint(items[_itemIndex]._itemPrice));
 
 
     }
 
     function triggerPayment(uint _itemIndex) public payable {
+        Item item = items[_itemIndex]._item;
         require(items[_itemIndex]._itemPrice == msg.value, "Only full payments");
         require(items[_itemIndex]._state == SupplyChainState.Evaluated, "The item has not been evaluated");
         items[_itemIndex]._state = SupplyChainState.Paid;
 
-        emit SupplyChainSetState(_itemIndex, uint(items[_itemIndex]._state));
+        emit SupplyChainSetState(_itemIndex, uint(items[_itemIndex]._state), address(item));
     }
 }

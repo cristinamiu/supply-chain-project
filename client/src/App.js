@@ -44,6 +44,7 @@ class App extends Component {
       this.setState({ loaded: true }, this.runExample);
       console.log(this.accounts[0]);
 
+      this.listenToPaymentEvent();
       window.ethereum.on("accountsChanged", (accounts) => {
         console.log("Changed");
         this.setState({ currentAccount: accounts[0] });
@@ -57,9 +58,13 @@ class App extends Component {
     }
   };
 
-  // listenToPaymentEvent = () => {
-  //   this.itemManager
-  // }
+  listenToPaymentEvent = () => {
+    this.itemManager.events
+      .SupplyChainSetState()
+      .on("data", async function (evt) {
+        console.log(evt);
+      });
+  };
 
   handleInputChange = (event) => {
     const target = event.target;
@@ -79,7 +84,12 @@ class App extends Component {
         .createItem(itemName, cost)
         .send({ from: this.state.currentAccount.toLowerCase() })
         .then((result) => {
+          console.log(result);
+
           let itemObject = {
+            index: result.events.SupplyChainSetState.returnValues._itemIndex,
+            address:
+              result.events.SupplyChainSetState.returnValues._itemAddress,
             identifier: itemName,
             cost: cost,
             status: "Created",
@@ -88,7 +98,10 @@ class App extends Component {
           this.setState((prevState) => ({
             itemsList: [...prevState.itemsList, itemObject],
           }));
-          console.log(result);
+          console.log(
+            "Item address:" +
+              result.events.SupplyChainSetState.returnValues._itemAddress
+          );
         });
       console.log(this.state.itemsList);
     } else {
@@ -96,15 +109,16 @@ class App extends Component {
     }
   };
 
-  triggerDelivery = (index) => {
+  triggerDelivery = (key, index) => {
+    console.log(index);
     if (this.state.owner === this.state.currentAccount.toLowerCase()) {
       this.itemManager.methods
         .triggerDelivery(parseInt(index))
         .send({ from: this.state.currentAccount.toLowerCase() })
         .then((result) => {
           let items = [...this.state.itemsList];
-          let item = { ...items[index], status: "In transit" };
-          items[index] = item;
+          let item = { ...items[key], status: "In transit" };
+          items[key] = item;
           this.setState({ itemsList: items });
           console.log(this.state);
         });
@@ -113,15 +127,16 @@ class App extends Component {
     }
   };
 
-  triggerArrival = (index) => {
+  triggerArrival = (key, index) => {
+    console.log(index);
     if (this.state.owner !== this.state.currentAccount.toLowerCase()) {
       this.itemManager.methods
         .triggerArrival(parseInt(index))
         .send({ from: this.state.currentAccount.toLowerCase() })
         .then((result) => {
           let items = [...this.state.itemsList];
-          let item = { ...items[index], status: "Delivered" };
-          items[index] = item;
+          let item = { ...items[key], status: "Delivered" };
+          items[key] = item;
           this.setState({ itemsList: items });
           console.log(this.state);
         });
@@ -130,15 +145,15 @@ class App extends Component {
     }
   };
 
-  triggerEvaluation = (index) => {
+  triggerEvaluation = (key, index) => {
     if (this.state.owner !== this.state.currentAccount.toLowerCase()) {
       this.itemManager.methods
         .triggerExamination(parseInt(index), 10)
         .send({ from: this.state.currentAccount.toLowerCase() })
         .then((result) => {
           let items = [...this.state.itemsList];
-          let item = { ...items[index], status: "Evaluated" };
-          items[index] = item;
+          let item = { ...items[key], status: "Evaluated" };
+          items[key] = item;
           this.setState({ itemsList: items });
           console.log(this.state);
         });
@@ -147,45 +162,85 @@ class App extends Component {
     }
   };
 
+  triggerPayment = (key, index, address, cost) => {
+    if (this.state.owner !== this.state.currentAccount.toLowerCase()) {
+      this.web3.eth.sendTransaction({
+        to: address,
+        value: cost,
+        from: this.state.currentAccount.toLowerCase(),
+        gas: 300000,
+      });
+
+      let items = [...this.state.itemsList];
+      let item = { ...items[key], status: "Paid" };
+      items[key] = item;
+      this.setState({ itemsList: items });
+      console.log(this.state);
+    } else {
+      alert("Only customer");
+    }
+  };
+
   render() {
-    // if (!this.loaded) {
-    //   return <div>Loading Web3, accounts, and contract...</div>;
-    // }
     return (
       <div className="App">
-        <h1>Supply Chain Example</h1>
-        <h2>Items</h2>
+        <nav class="navbar navbar-light bg-light">
+          <div>
+            <span class="navbar-brand" href="#">
+              <img
+                src="/process.png"
+                width="30"
+                height="30"
+                class="d-inline-block align-top"
+                alt=""
+                className="m-2"
+              />
+            </span>
+            <span>Supply Chain Example</span>
+          </div>
+        </nav>
         <h2>Add Items</h2>
-        Cost in Wei:{" "}
-        <input
-          type="text"
-          name="cost"
-          value={this.state.cost}
-          onChange={this.handleInputChange}
-        ></input>
-        Item Identifier:{" "}
-        <input
-          type="text"
-          name="itemName"
-          value={this.state.itemName}
-          onChange={this.handleInputChange}
-        ></input>
-        <button type="button" onClick={this.handleSubmit}>
-          Create new item
-        </button>
-        <button type="button" onClick={this.triggerDelivery}>
-          Trigger delivery
-        </button>
-        <button type="button" onClick={this.triggerArrival}>
-          Trigger arrival
-        </button>
+        <div className="row justify-content-md-center mt-4">
+          <div className="col-md-4">
+            <form>
+              <div class="form-group">
+                <label>Cost in Wei: </label>
+                <input
+                  className="form-control"
+                  type="text"
+                  name="cost"
+                  value={this.state.cost}
+                  onChange={this.handleInputChange}
+                ></input>
+              </div>
+              <div class="form-group">
+                <label>Item Name: </label>
+                <input
+                  className="form-control"
+                  type="text"
+                  name="itemName"
+                  value={this.state.itemName}
+                  onChange={this.handleInputChange}
+                ></input>
+                <button
+                  className="btn btn-primary mt-3"
+                  type="button"
+                  onClick={this.handleSubmit}
+                >
+                  Create new item
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
         <div className="m-5">
           <h1>Items</h1>
           <div>
-            <table className="table mt-5">
+            <table className="table table-striped mt-5">
               <thead>
                 <tr>
                   <th scope="col">#</th>
+                  <th scope="col">Address</th>
                   <th scope="col">Name</th>
                   <th scope="col">Cost</th>
                   <th scope="col">Quality</th>
@@ -196,44 +251,86 @@ class App extends Component {
               <tbody>
                 {this.state.itemsList.map((item, key) => (
                   <tr>
-                    <td>{key}</td>
+                    <td>{item.index}</td>
+                    <td>{item.address}</td>
                     <td>{item.identifier}</td>
                     <td>{item.cost}</td>
                     <td>{item.quality}</td>
                     <td>
-                      <span className="badge rounded-pill bg-primary">
-                        {item.status}
-                      </span>
+                      {item.status === "Created" && (
+                        <span className="badge rounded-pill bg-info">
+                          {item.status}
+                        </span>
+                      )}
+                      {item.status === "In transit" && (
+                        <span className="badge rounded-pill bg-secondary">
+                          {item.status}
+                        </span>
+                      )}
+                      {item.status === "Delivered" && (
+                        <span className="badge rounded-pill bg-warning">
+                          {item.status}
+                        </span>
+                      )}
+                      {item.status === "Evaluated" && (
+                        <span className="badge rounded-pill bg-danger">
+                          {item.status}
+                        </span>
+                      )}
+                      {item.status === "Paid" && (
+                        <span className="badge rounded-pill bg-success">
+                          {item.status}
+                        </span>
+                      )}
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-small"
-                        onClick={() => this.triggerDelivery(key)}
-                      >
-                        Trigger Delivery
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-small"
-                        onClick={() => this.triggerArrival(key)}
-                      >
-                        Trigger Arrival
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-small"
-                        onClick={() => this.triggerEvaluation(key)}
-                      >
-                        Trigger Examination
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-small"
-                        onClick={() => this.triggerPayment(key)}
-                      >
-                        Trigger Payment
-                      </button>
+                      {item.status == "Created" && (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-small"
+                          onClick={() => this.triggerDelivery(key, item.index)}
+                        >
+                          Trigger Delivery
+                        </button>
+                      )}
+
+                      {item.status == "In transit" && (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-small"
+                          onClick={() => this.triggerArrival(key, item.index)}
+                        >
+                          Trigger Arrival
+                        </button>
+                      )}
+                      {item.status == "Delivered" && (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-small"
+                          onClick={() =>
+                            this.triggerEvaluation(key, item.index)
+                          }
+                        >
+                          Trigger Examination
+                        </button>
+                      )}
+
+                      {item.status == "Evaluated" && (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-small"
+                          onClick={() =>
+                            this.triggerPayment(
+                              key,
+                              item.index,
+                              item.address,
+                              item.cost
+                            )
+                          }
+                        >
+                          Proceed to Payment
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
