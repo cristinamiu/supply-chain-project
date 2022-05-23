@@ -164,17 +164,20 @@ class App extends Component {
 
   triggerPayment = (key, index, address, cost) => {
     if (this.state.owner !== this.state.currentAccount.toLowerCase()) {
-      this.web3.eth.sendTransaction({
-        to: address,
-        value: cost,
-        from: this.state.currentAccount.toLowerCase(),
-        gas: 300000,
-      });
+      this.web3.eth
+        .sendTransaction({
+          to: address,
+          value: cost,
+          from: this.state.currentAccount.toLowerCase(),
+          gas: 300000,
+        })
+        .then(() => {
+          let items = [...this.state.itemsList];
+          let item = { ...items[key], status: "Paid" };
+          items[key] = item;
+          this.setState({ itemsList: items });
+        });
 
-      let items = [...this.state.itemsList];
-      let item = { ...items[key], status: "Paid" };
-      items[key] = item;
-      this.setState({ itemsList: items });
       console.log(this.state);
     } else {
       alert("Only customer");
@@ -196,7 +199,7 @@ class App extends Component {
                 className="m-2"
               />
             </span>
-            <span>Supply Chain Example</span>
+            <span>Supply Chain Project</span>
           </div>
         </nav>
         <h2>Add Items</h2>
@@ -297,7 +300,7 @@ class App extends Component {
                       {item.status == "In transit" && (
                         <button
                           type="button"
-                          className="btn btn-primary btn-small"
+                          className="btn btn-warning btn-small"
                           onClick={() => this.triggerArrival(key, item.index)}
                         >
                           Trigger Arrival
@@ -306,7 +309,7 @@ class App extends Component {
                       {item.status == "Delivered" && (
                         <button
                           type="button"
-                          className="btn btn-primary btn-small"
+                          className="btn btn-danger btn-small"
                           onClick={() =>
                             this.triggerEvaluation(key, item.index)
                           }
@@ -318,7 +321,7 @@ class App extends Component {
                       {item.status == "Evaluated" && (
                         <button
                           type="button"
-                          className="btn btn-primary btn-small"
+                          className="btn btn-success btn-small"
                           onClick={() =>
                             this.triggerPayment(
                               key,
